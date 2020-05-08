@@ -51,13 +51,20 @@ class LinearClassifier(object):
             # Store the data in X_batch and their corresponding labels in           #
             # y_batch; after sampling X_batch should have shape (batch_size, dim)   #
             # and y_batch should have shape (batch_size,)                           #
-            #                                                                       #
+            #                                                                   #
             # Hint: Use np.random.choice to generate indices. Sampling with         #
             # replacement is faster than sampling without replacement.              #
             #########################################################################
             # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
-
-            pass
+            
+            # 这个语法相当于从num_train这么多index里面随机抽出batch_size个index
+            # 我一开始的那种写法相当于把num_train全部用了一遍，而这种是可以重复用的
+            # 避免了溢出的问题
+            sample_index = np.random.choice(num_train, batch_size, replace=False)
+            X_batch = X[sample_index,:]
+            y_batch = y[sample_index]
+            
+            
 
             # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
@@ -72,7 +79,7 @@ class LinearClassifier(object):
             #########################################################################
             # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-            pass
+            self.W += - learning_rate * grad
 
             # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
@@ -102,8 +109,8 @@ class LinearClassifier(object):
         ###########################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-        pass
-
+        y_pred = X.dot(self.W)
+        y_pred = np.argmax(y_pred, axis=1)
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         return y_pred
 
