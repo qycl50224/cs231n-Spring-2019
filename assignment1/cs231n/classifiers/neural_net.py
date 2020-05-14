@@ -79,9 +79,10 @@ class TwoLayerNet(object):
         # shape (N, C).                                                             #
         #############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
-
-        pass
-
+        f1 = X.dot(W1)+b1  # (N, H)
+        relu = np.maximum(0,f1)  # (N, H)   
+        f2 = relu.dot(W2)+b2   # (N, C)
+        scores = f2
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
         # If the targets are not given then jump out, we're done
@@ -97,8 +98,11 @@ class TwoLayerNet(object):
         # classifier loss.                                                          #
         #############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
-
-        pass
+        scores -= np.max(scores)
+        # sum之后会变成向量
+        loss = np.sum(-scores[np.arange(N), y]+np.log(np.sum(np.exp(scores), axis=1)))
+        loss /= N
+        loss +=  reg * np.sum(W1*W1) +   reg * np.sum(W2*W2)
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
@@ -110,8 +114,37 @@ class TwoLayerNet(object):
         # grads['W1'] should store the gradient on W1, and be a matrix of same size #
         #############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
-
-        pass
+        
+        # 住里这里一定要进行reshape，
+        # print(np.sum(np.exp(scores),axis=1).shape) (5,)
+        # print(np.sum(np.exp(scores),axis=1).reshape(N,1).shape)  (5, 1)
+        margin = np.exp(scores)/np.sum(np.exp(scores),axis=1).reshape(N,1)
+        margin[np.arange(N), y] += -1
+        # compute dW2
+        dW2 = relu.T.dot(margin)
+        dW2 /= N
+        dW2 += 2 * reg * W2
+        grads['W2'] = dW2
+        
+        # compute b2
+        b2 = np.sum(margin, axis = 0)
+        b2 /= N
+        grads['b2'] = b2
+        
+        # 计算relu层之后的margin
+        margin1 = margin.dot(W2.T) #(N, H)
+        margin1[relu <= 0] = 0
+        
+        # 计算f1的梯度
+        dW1 = X.T.dot(margin1) #(D, H)
+        dW1 += 2 * reg * W1 
+        grads['W1'] = dW1
+        
+        # 计算b1
+        b1 = np.sum(margin1, axis = 0)
+        b1 /= N
+        grads['b1'] = b1
+        
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
@@ -156,7 +189,7 @@ class TwoLayerNet(object):
             #########################################################################
             # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-            pass
+            
 
             # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
@@ -172,7 +205,7 @@ class TwoLayerNet(object):
             #########################################################################
             # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-            pass
+            
 
             # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
