@@ -79,10 +79,13 @@ class TwoLayerNet(object):
         # shape (N, C).                                                             #
         #############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
-        f1 = X.dot(W1)+b1  # (N, H)
-        relu = np.maximum(0,f1)  # (N, H)   
-        f2 = relu.dot(W2)+b2   # (N, C)
+        f1 = X.dot(W1) + b1       # (N, H)
+        relu = np.maximum(0, f1)  # (N, H)   
+        f2 = relu.dot(W2) + b2   # (N, C) 
         scores = f2
+#         a1 = X.dot(W1) + self.params['b1']            # shape N x H
+#         a1_relu = np.maximum(a1, np.zeros_like(a1))   # shape N x H
+#         scores = a1_relu.dot(W2) + self.params['b2']  # shape N x C
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
         # If the targets are not given then jump out, we're done
@@ -98,12 +101,25 @@ class TwoLayerNet(object):
         # classifier loss.                                                          #
         #############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
-        scores -= np.max(scores)
-        # sum之后会变成向量
-        loss = np.sum(-scores[np.arange(N), y]+np.log(np.sum(np.exp(scores), axis=1)))
+###############################################################################################    
+#    下面这种写法并不正确，从讲义上面的公式推导可知应该是减去对应行的最大值
+#
+#         scores -= np.max(scores)                     # (N, C)
+#         correct_class_score = scores[np.arange(N),y].reshape(-1,1)   # (N, 1)
+#         # sum之后会变成向量
+#         loss = -correct_class_score.sum()+np.log(np.sum(np.exp(scores), axis=1)).sum()
+#         loss /= N
+#         loss +=  reg * np.sum(W1*W1) +   reg * np.sum(W2*W2)
+###############################################################################################        
+    
+        correct_class_scores = scores[range(X.shape[0]), y].reshape(-1, 1)
+        max_scores = scores.max(axis=1, keepdims=True)
+        scores -= max_scores
+        # 计算softmax损失 别忘了把减去的最大值加上
+        loss = - (correct_class_scores.sum() - max_scores.sum()) + np.log(np.exp(scores).sum(axis=1)).sum()
         loss /= N
-        loss +=  reg * np.sum(W1*W1) +   reg * np.sum(W2*W2)
-
+        loss += reg * (np.sum(W1 * W1) + np.sum(W2 * W2))
+        
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
         # Backward pass: compute gradients
@@ -115,36 +131,42 @@ class TwoLayerNet(object):
         #############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         
-        # 住里这里一定要进行reshape，
+        # 注意这里一定要进行reshape，
         # print(np.sum(np.exp(scores),axis=1).shape) (5,)
         # print(np.sum(np.exp(scores),axis=1).reshape(N,1).shape)  (5, 1)
-        margin = np.exp(scores)/np.sum(np.exp(scores),axis=1).reshape(N,1)
-        margin[np.arange(N), y] += -1
+        # 
+        der_f2 = np.exp(scores)/np.sum(np.exp(scores),axis=1).reshape(N,1) # (N, 1)
+        der_f2[np.arange(N), y] += -1
         # compute dW2
-        dW2 = relu.T.dot(margin)
-        dW2 /= N
+        dW2 = relu.T.dot(der_f2)   # (H, 1)
+        dW2 /= N              
         dW2 += 2 * reg * W2
         grads['W2'] = dW2
         
-        # compute b2
-        b2 = np.sum(margin, axis = 0)
-        b2 /= N
-        grads['b2'] = b2
+        # 计算 b2
+        db2 = np.sum(der_f2, axis = 0)
+        db2 /= N
+        grads['b2'] = db2
         
-        # 计算relu层之后的margin
-        margin1 = margin.dot(W2.T) #(N, H)
-        margin1[relu <= 0] = 0
+        # 计算relu层的导数
+        der_relu = der_f2.dot(W2.T) #(N, H)
+        
+        # 计算第一个全连接层后的loss0
+        der_f1 = der_relu * (relu > 0)
         
         # 计算f1的梯度
-        dW1 = X.T.dot(margin1) #(D, H)
+        dW1 = X.T.dot(der_f1) #(D, H)
+        dW1 /= N
         dW1 += 2 * reg * W1 
         grads['W1'] = dW1
         
         # 计算b1
-        b1 = np.sum(margin1, axis = 0)
-        b1 /= N
-        grads['b1'] = b1
         
+        db1 = np.sum(der_f1, axis = 0)
+        db1 /= N
+
+        grads['b1'] = db1
+
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
@@ -188,7 +210,9 @@ class TwoLayerNet(object):
             # them in X_batch and y_batch respectively.                             #
             #########################################################################
             # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
-
+            index = np.random.choice(num_train, batch_size, replace=False)
+            X_batch = X[index,:]
+            y_batch = y[index]
             
 
             # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
@@ -204,7 +228,11 @@ class TwoLayerNet(object):
             # stored in the grads dictionary defined above.                         #
             #########################################################################
             # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
-
+            # 所谓stochastic gradient descent 就是梯度变化 = -学习率×梯度
+            for param_name in self.params:
+                self.params[param_name] += -learning_rate * grads[param_name]
+            
+            
             
 
             # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
@@ -250,8 +278,8 @@ class TwoLayerNet(object):
         # TODO: Implement this function; it should be VERY simple!                #
         ###########################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
-
-        pass
+        y_pred = self.loss(X)
+        y_pred = np.argmax(y_pred, axis=1)
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
